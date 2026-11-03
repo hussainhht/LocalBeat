@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
-    <style name="Theme.LocalBeat" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.LocalBeat.Base" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/localbeat_background</item>
+        <item name="android:colorAccent">@color/localbeat_crimson</item>
+        <item name="android:statusBarColor">@color/localbeat_background</item>
+        <item name="android:navigationBarColor">@color/localbeat_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+    <style name="Theme.LocalBeat" parent="Theme.LocalBeat.Base" />
 </resources>

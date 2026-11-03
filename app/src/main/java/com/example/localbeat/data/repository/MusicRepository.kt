@@ -33,6 +33,8 @@ class MusicRepositoryImpl(private val contentResolver: ContentResolver) : MusicR
             MediaStore.Audio.Media.ALBUM,
             MediaStore.Audio.Media.DURATION,
             MediaStore.Audio.Media.ALBUM_ID,
+            MediaStore.Audio.Media.ARTIST_ID,
+            MediaStore.Audio.Media.DATE_ADDED,
         )
         val songs = mutableListOf<Song>()
         val cursor = contentResolver.query(
@@ -53,6 +55,9 @@ class MusicRepositoryImpl(private val contentResolver: ContentResolver) : MusicR
                 val id = it.getLong(idColumn)
                 songs += Song(
                     id = id.toString(),
+                    albumId = it.getLong(it.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)),
+                    artistId = it.getLong(it.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST_ID)),
+                    dateAdded = it.getLong(it.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)),
                     title = it.getString(titleColumn).metadataOr("Unknown title"),
                     artist = it.getString(artistColumn).metadataOr("Unknown artist"),
                     album = it.getString(albumColumn).metadataOr("Unknown album"),

@@ -16,7 +16,7 @@ import com.example.localbeat.player.PlaybackState
 import com.example.localbeat.ui.components.SongArtwork
 
 @Composable
-fun PlayerScreen(state: PlaybackState, player: AudioPlayer, onBackClick: () -> Unit, modifier: Modifier = Modifier) {
+fun PlayerScreen(state: PlaybackState, player: AudioPlayer, onBackClick: () -> Unit, modifier: Modifier = Modifier, isFavorite: Boolean = false, onFavorite: () -> Unit = {}) {
     var showQueue by remember { mutableStateOf(false) }
     var dragging by remember(state.currentSong?.id) { mutableStateOf<Float?>(null) }
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -31,6 +31,7 @@ fun PlayerScreen(state: PlaybackState, player: AudioPlayer, onBackClick: () -> U
         Text(state.currentSong?.title ?: "No song selected", style = MaterialTheme.typography.headlineSmall)
         Text(state.currentSong?.artist.orEmpty())
         Text(state.currentSong?.album.orEmpty(), style = MaterialTheme.typography.bodySmall)
+        TextButton(onClick = onFavorite, enabled = state.currentSong != null) { Text(if (isFavorite) "♥ Unfavorite" else "♡ Favorite") }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Slider(
             value = dragging ?: state.currentPosition.toFloat().coerceIn(0f, state.duration.coerceAtLeast(1).toFloat()),

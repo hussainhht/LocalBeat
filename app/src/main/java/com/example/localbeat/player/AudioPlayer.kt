@@ -78,6 +78,16 @@ class AudioPlayer(application: Application) : AndroidViewModel(application) {
             play()
         }
     }
+    fun playQueue(songs: List<Song>, song: Song, shuffle: Boolean) {
+        controller?.shuffleModeEnabled = shuffle
+        play(songs, song)
+    }
+    fun enqueue(song: Song, next: Boolean) {
+        controller?.apply {
+            if (mediaItemCount == 0) { setMediaItem(song.toMediaItem()); prepare() }
+            else addMediaItem(if (next) currentMediaItemIndex + 1 else mediaItemCount, song.toMediaItem())
+        }
+    }
     fun toggle() { controller?.apply {
         if (isPlaying) pause() else {
             if (playbackState == Player.STATE_ENDED) seekToDefaultPosition()

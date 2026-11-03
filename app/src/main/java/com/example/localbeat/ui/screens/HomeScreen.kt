@@ -1,104 +1,38 @@
 package com.example.localbeat.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.localbeat.data.model.Song
+import com.example.localbeat.ui.components.SongArtwork
 
-/**
- * Placeholder Compose screen for the Home destination.
- */
 @Composable
-fun HomeScreen(
-    onNavigateToSongs: () -> Unit,
-    onNavigateToDownloads: () -> Unit,
-    onNavigateToPlayer: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(
-            text = "Welcome to LocalBeat",
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.primary,
-        )
-
-        Text(
-            text = "Offline-first music player & downloader",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-            ),
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Phase 1: Architecture Setup",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Core structure established: UI screens, navigation, data models, repository abstractions, player, and downloader layers.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                )
+fun HomeScreen(sections: List<Pair<String, List<Song>>>, ready: Boolean,
+    navigate: (String) -> Unit, play: (List<Song>, Song) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        sections.forEach { (title, songs) ->
+            Column {
+                TextButton(onClick = { navigate(title) }) { Text(title, style = MaterialTheme.typography.titleLarge) }
+                if (songs.isEmpty()) Text(if (title == "Favorites") "Favorite songs to keep them here." else "Your music will appear here as you build your library.")
+                else LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(songs.take(10), key = { it.id }) { song ->
+                        Card(onClick = { play(songs, song) }, enabled = ready, modifier = Modifier.width(160.dp)) {
+                            SongArtwork(song.albumArtUri, Modifier.size(120.dp))
+                            Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(song.artist, maxLines = 1, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
             }
         }
-
-        Text(
-            text = "Quick Navigation",
-            style = MaterialTheme.typography.titleLarge,
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Button(
-                onClick = onNavigateToSongs,
-                modifier = Modifier.weight(1f),
-            ) {
-                Text("Browse Songs")
-            }
-
-            OutlinedButton(
-                onClick = onNavigateToDownloads,
-                modifier = Modifier.weight(1f),
-            ) {
-                Text("Downloads")
-            }
-        }
-
-        OutlinedButton(
-            onClick = onNavigateToPlayer,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Open Player Screen")
+        Text("Quick access", style = MaterialTheme.typography.titleLarge)
+        listOf("Songs", "Albums", "Artists", "Playlists").forEach { title ->
+            TextButton(onClick = { navigate(title) }) { Text(title) }
         }
     }
 }

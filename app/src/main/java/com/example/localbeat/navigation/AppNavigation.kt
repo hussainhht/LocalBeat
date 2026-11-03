@@ -1,116 +1,70 @@
 package com.example.localbeat.navigation
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import com.example.localbeat.data.repository.DownloadRepository
-import com.example.localbeat.data.repository.DownloadRepositoryImpl
-import com.example.localbeat.player.AudioPlayer
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.localbeat.ui.components.BottomNavBar
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.localbeat.player.AudioPlayer
 import com.example.localbeat.ui.components.MiniPlayer
-import com.example.localbeat.ui.screens.DownloadsScreen
-import com.example.localbeat.ui.screens.HomeScreen
-import com.example.localbeat.ui.screens.PlayerScreen
-import com.example.localbeat.ui.screens.SongsScreen
-import kotlinx.coroutines.launch
+import com.example.localbeat.ui.screens.*
 
-/**
- * Root navigation component that manages bottom navigation,
- * screen switching, and the existing download and player placeholders.
- */
 @Composable
-fun AppNavigation(
-    modifier: Modifier = Modifier,
-    downloadRepository: DownloadRepository = remember { DownloadRepositoryImpl() },
-    player: AudioPlayer = viewModel(),
-) {
-    var currentScreen by rememberSaveable { mutableStateOf<String>(Screen.Home.route) }
-    var previousScreen by rememberSaveable { mutableStateOf<String>(Screen.Home.route) }
-
-    val coroutineScope = rememberCoroutineScope()
-
-    val downloads by downloadRepository.getDownloads().collectAsState(initial = emptyList())
+fun AppNavigation(modifier: Modifier = Modifier, player: AudioPlayer = viewModel(),
+    songs: SongsViewModel = viewModel(), library: LibraryViewModel = viewModel(),
+    shared: String? = null, sharedVideo: Boolean = false) {
+    var stack by rememberSaveable { mutableStateOf(listOf("Home")) }
+    val route = stack.last()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val downloads = remember { com.example.localbeat.data.repository.DownloadRepositoryImpl.get(context) }
+    LaunchedEffect(shared) { if (shared != null) stack = listOf("Downloads") }
+    LaunchedEffect(downloads) { downloads.libraryRevision.collect { songs.refresh() } }
+    fun navigate(target: String) { if (target != route) stack = stack + target }
+    fun back() { if (stack.size > 1) stack = stack.dropLast(1) }
+    BackHandler(stack.size > 1) { back() }
+    val scanning by songs.uiState.collectAsStateWithLifecycle()
     val playback by player.state.collectAsStateWithLifecycle()
-    val currentSong = playback.currentSong
-
-    fun navigateTo(screen: Screen) {
-        if (currentScreen != screen.route) {
-            previousScreen = currentScreen
-            currentScreen = screen.route
-        }
+    val user by library.user.collectAsStateWithLifecycle()
+    val owner = LocalLifecycleOwner.current
+    DisposableEffect(owner) {
+        val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) songs.refresh() }
+        owner.lifecycle.addObserver(observer)
+        songs.refresh()
+        onDispose { owner.lifecycle.removeObserver(observer) }
     }
-
-    BackHandler(enabled = currentScreen == Screen.Player.route) {
-        currentScreen = previousScreen
-    }
-
-    val activeScreen = when (currentScreen) {
-        Screen.Songs.route -> Screen.Songs
-        Screen.Downloads.route -> Screen.Downloads
-        Screen.Player.route -> Screen.Player
-        else -> Screen.Home
-    }
-
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        bottomBar = {
-            if (activeScreen != Screen.Player) {
-                Column {
-                    if (currentSong != null) {
-                        MiniPlayer(
-                            state = playback,
-                            onPlayPauseClick = player::toggle,
-                            onClick = { navigateTo(Screen.Player) },
-                        )
-                    }
-                    BottomNavBar(
-                        currentScreen = activeScreen,
-                        onScreenSelected = { screen -> navigateTo(screen) },
-                    )
+    LaunchedEffect(scanning.songs) { library.load(scanning.songs) }
+    Scaffold(modifier.fillMaxSize(), bottomBar = {
+        if (route != "Player") Column {
+            MiniPlayer(playback, player::toggle, { navigate("Player") })
+            NavigationBar {
+                listOf("Home", "Songs", "Search", "Favorites").forEach { destination ->
+                    NavigationBarItem(selected = route == destination, onClick = { stack = listOf(destination) },
+                        icon = { Text(destination.take(1)) }, label = { Text(destination) })
                 }
             }
-        },
-    ) { innerPadding ->
-        when (activeScreen) {
-            Screen.Home -> HomeScreen(
-                onNavigateToSongs = { navigateTo(Screen.Songs) },
-                onNavigateToDownloads = { navigateTo(Screen.Downloads) },
-                onNavigateToPlayer = { navigateTo(Screen.Player) },
-                modifier = Modifier.padding(innerPadding),
-            )
-            Screen.Songs -> SongsScreen(
-                onSongClick = player::play,
-                playbackReady = playback.connected,
-                modifier = Modifier.padding(innerPadding),
-            )
-            Screen.Downloads -> DownloadsScreen(
-                downloads = downloads,
-                onStartDownload = { url ->
-                    coroutineScope.launch {
-                        downloadRepository.startDownload(url = url, title = "")
-                    }
-                },
-                modifier = Modifier.padding(innerPadding),
-            )
-            Screen.Player -> PlayerScreen(
-                state = playback,
-                player = player,
-                onBackClick = { currentScreen = previousScreen },
-                modifier = Modifier.padding(innerPadding),
-            )
+        }
+    }) { padding ->
+        Column(Modifier.padding(padding)) {
+            if (route != "Player") Row {
+                if (stack.size > 1) TextButton(onClick = { back() }) { Text("Back") }
+                TextButton(onClick = songs::refresh) { Text("Refresh library") }
+                TextButton(onClick = { navigate("Downloads") }) { Text("Downloads") }
+            }
+            when {
+                route == "Downloads" -> DownloadsScreen(shared = shared, sharedVideo = sharedVideo)
+                route == "Player" -> PlayerScreen(playback, player, { back() },
+                    isFavorite = playback.currentSong?.id in user.favorites,
+                    onFavorite = { playback.currentSong?.let(library::favorite) })
+                !scanning.hasPermission || scanning.isLoading || scanning.error != null ->
+                    SongsScreen(songsViewModel = songs, onSongClick = player::play, playbackReady = playback.connected)
+                else -> LibraryScreen(route, library, player, ::navigate)
+            }
         }
     }
 }

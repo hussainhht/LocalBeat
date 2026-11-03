@@ -47,6 +47,8 @@ import java.util.Locale
 fun SongsScreen(
     modifier: Modifier = Modifier,
     songsViewModel: SongsViewModel = viewModel(),
+    onSongClick: (List<Song>, Song) -> Unit = { _, _ -> },
+    playbackReady: Boolean = true,
 ) {
     val context = LocalContext.current
     val activity = context.findActivity()
@@ -143,7 +145,7 @@ fun SongsScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         items(state.songs, key = { it.contentUri.toString() }) { song ->
-                            SongListItem(song = song)
+                            SongListItem(song = song, onClick = { onSongClick(state.songs, song) }, enabled = playbackReady)
                         }
                     }
                 }
@@ -153,8 +155,8 @@ fun SongsScreen(
 }
 
 @Composable
-fun SongListItem(song: Song, modifier: Modifier = Modifier) {
-    Card(modifier = modifier.fillMaxWidth()) {
+fun SongListItem(song: Song, modifier: Modifier = Modifier, onClick: () -> Unit = {}, enabled: Boolean = true) {
+    Card(onClick = onClick, enabled = enabled, modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,

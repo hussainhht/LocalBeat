@@ -1,81 +1,34 @@
 package com.example.localbeat.ui.components
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.localbeat.data.model.Song
+import com.example.localbeat.player.PlaybackState
 
-/**
- * MiniPlayer component displayed at the bottom of the screen,
- * allowing quick control and tap-to-expand to full PlayerScreen.
- */
 @Composable
-fun MiniPlayer(
-    song: Song?,
-    isPlaying: Boolean,
-    onPlayPauseClick: () -> Unit,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    if (song == null) return
-
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-            ) {
-                Text(
-                    text = song.title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = song.artist,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+fun MiniPlayer(state: PlaybackState, onPlayPauseClick: () -> Unit, onClick: () -> Unit) {
+    val song = state.currentSong ?: return
+    Surface(tonalElevation = 4.dp) {
+        Column(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+            Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                SongArtwork(song.albumArtUri, Modifier.size(48.dp))
+                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                    Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(song.artist, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                }
+                TextButton(onClick = onPlayPauseClick, enabled = state.connected) {
+                    Text(if (state.isPlaying) "Pause" else "Play")
+                }
             }
-            Spacer(modifier = Modifier.width(8.dp))
-            IconButton(onClick = onPlayPauseClick) {
-                Icon(
-                    imageVector = Icons.Default.PlayArrow,
-                    contentDescription = if (isPlaying) "Pause" else "Play",
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-            }
+            LinearProgressIndicator(
+                progress = { if (state.duration > 0) (state.currentPosition.toFloat() / state.duration).coerceIn(0f, 1f) else 0f },
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }

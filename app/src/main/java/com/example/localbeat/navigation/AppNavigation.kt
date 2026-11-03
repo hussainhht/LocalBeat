@@ -17,7 +17,8 @@ import androidx.compose.ui.Modifier
 import com.example.localbeat.data.repository.DownloadRepository
 import com.example.localbeat.data.repository.DownloadRepositoryImpl
 import com.example.localbeat.player.AudioPlayer
-import com.example.localbeat.player.AudioPlayerImpl
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.localbeat.ui.components.BottomNavBar
 import com.example.localbeat.ui.components.MiniPlayer
 import com.example.localbeat.ui.screens.DownloadsScreen
@@ -34,7 +35,7 @@ import kotlinx.coroutines.launch
 fun AppNavigation(
     modifier: Modifier = Modifier,
     downloadRepository: DownloadRepository = remember { DownloadRepositoryImpl() },
-    player: AudioPlayer = remember { AudioPlayerImpl() },
+    player: AudioPlayer = viewModel(),
 ) {
     var currentScreen by rememberSaveable { mutableStateOf<String>(Screen.Home.route) }
     var previousScreen by rememberSaveable { mutableStateOf<String>(Screen.Home.route) }
@@ -42,8 +43,8 @@ fun AppNavigation(
     val coroutineScope = rememberCoroutineScope()
 
     val downloads by downloadRepository.getDownloads().collectAsState(initial = emptyList())
-    val currentSong by player.currentSong.collectAsState()
-    val isPlaying by player.isPlaying.collectAsState()
+    val playback by player.state.collectAsStateWithLifecycle()
+    val currentSong = playback.currentSong
 
     fun navigateTo(screen: Screen) {
         if (currentScreen != screen.route) {
@@ -70,11 +71,8 @@ fun AppNavigation(
                 Column {
                     if (currentSong != null) {
                         MiniPlayer(
-                            song = currentSong,
-                            isPlaying = isPlaying,
-                            onPlayPauseClick = {
-                                if (isPlaying) player.pause() else player.resume()
-                            },
+                            state = playback,
+                            onPlayPauseClick = player::toggle,
                             onClick = { navigateTo(Screen.Player) },
                         )
                     }
@@ -94,6 +92,8 @@ fun AppNavigation(
                 modifier = Modifier.padding(innerPadding),
             )
             Screen.Songs -> SongsScreen(
+                onSongClick = player::play,
+                playbackReady = playback.connected,
                 modifier = Modifier.padding(innerPadding),
             )
             Screen.Downloads -> DownloadsScreen(
@@ -106,11 +106,8 @@ fun AppNavigation(
                 modifier = Modifier.padding(innerPadding),
             )
             Screen.Player -> PlayerScreen(
-                song = currentSong,
-                isPlaying = isPlaying,
-                onPlayPauseClick = {
-                    if (isPlaying) player.pause() else player.resume()
-                },
+                state = playback,
+                player = player,
                 onBackClick = { currentScreen = previousScreen },
                 modifier = Modifier.padding(innerPadding),
             )

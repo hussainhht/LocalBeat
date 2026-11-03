@@ -32,6 +32,7 @@ class MusicRepositoryImpl(private val contentResolver: ContentResolver) : MusicR
             MediaStore.Audio.Media.ARTIST,
             MediaStore.Audio.Media.ALBUM,
             MediaStore.Audio.Media.DURATION,
+            MediaStore.Audio.Media.ALBUM_ID,
         )
         val songs = mutableListOf<Song>()
         val cursor = contentResolver.query(
@@ -56,6 +57,10 @@ class MusicRepositoryImpl(private val contentResolver: ContentResolver) : MusicR
                     artist = it.getString(artistColumn).metadataOr("Unknown artist"),
                     album = it.getString(albumColumn).metadataOr("Unknown album"),
                     durationMs = it.getLong(durationColumn),
+                    albumArtUri = ContentUris.withAppendedId(
+                        android.net.Uri.parse("content://media/external/audio/albumart"),
+                        it.getLong(it.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)),
+                    ).toString(),
                     contentUri = ContentUris.withAppendedId(collection, id),
                 )
             }

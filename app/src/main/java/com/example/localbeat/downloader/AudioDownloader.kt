@@ -27,27 +27,32 @@ interface AudioDownloader {
 class AudioDownloaderImpl(private val context: Context) : AudioDownloader {
     private fun init() {
         try { YoutubeDL.init(context); FFmpeg.init(context) }
-        catch (e: Exception) { error("Native audio tools could not initialize. Check free storage and device ABI.") }
+        catch (e: Exception) {
+            extractionDiagnostic(context, "initialization", e.toString())
+            throw IllegalStateException("Native audio tools could not initialize.", e)
+        }
     }
     private fun request(url: String): YoutubeDLRequest {
         require(validMediaUrl(url)) { "Enter an HTTP or HTTPS URL without credentials." }
-        return YoutubeDLRequest(url).apply {
+        val canonical = canonicalMediaUrl(url)
+        if (canonical.startsWith("https://www.youtube.com/watch?v=")) YouTubeRuntime.prepare(context)
+        return YoutubeDLRequest(canonical).apply {
             addOption("--no-playlist"); addOption("--no-config"); addOption("--socket-timeout", "30")
             addOption("--retries", "3")
+            if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0)
+                addOption("--verbose")
         }
     }
     override fun info(url: String, id: String): MediaPreview {
         init()
         val req = request(url).apply { addOption("--dump-single-json"); addOption("--skip-download") }
-        val json = JSONObject(YoutubeDL.execute(req, id, null).out)
+        val json = JSONObject(execute(req, id, "metadata").out)
         require(!json.optBoolean("is_live") && !json.optBoolean("has_drm")) { "Live or protected media is unsupported." }
         val formats = json.optJSONArray("formats")
         // Direct media often puts its sole format on the root object.
         val candidates = if (formats != null && formats.length() > 0)
             (0 until formats.length()).map { formats.getJSONObject(it) } else listOf(json)
-        val audio = candidates.filter {
-            it.optString("acodec", "unknown") != "none" && !it.optBoolean("has_drm")
-        }
+        val audio = candidates.filter(::usableAudioFormat)
         require(audio.isNotEmpty()) { "No supported unprotected audio stream found." }
         fun field(key: String) = json.optString(key).takeIf { it.isNotBlank() && it != "null" }
         return MediaPreview(field("title") ?: "Audio", field("thumbnail"), json.optDouble("duration").takeIf { it.isFinite() },
@@ -62,16 +67,27 @@ class AudioDownloaderImpl(private val context: Context) : AudioDownloader {
     override fun download(item: DownloadItem, directory: File, callback: (Float?, Long?, Long?) -> Unit): File {
         init()
         val req = request(item.url).apply {
-            addOption("-f", "bestaudio/best"); addOption("--no-part")
+            addOption("-f", AUDIO_SELECTION); addOption("--check-formats"); addOption("--no-part")
             addOption("--downloader", "native")
             addOption("-o", File(directory, "source.%(ext)s").absolutePath)
             addOption("--newline")
         }
-        YoutubeDL.execute(req, item.id) { percent, _, line ->
+        execute(req, item.id, "transfer") { percent, _, line ->
             val processing = line.startsWith("[Extract") || line.startsWith("[Merger")
             callback(if (!processing && percent in 0f..100f) percent / 100f else null, null, null)
         }
         return directory.listFiles()!!.single { it.name.startsWith("source.") && !it.name.endsWith(".part") }
+    }
+    private fun execute(req: YoutubeDLRequest, id: String, stage: String,
+        callback: ((Float, Long, String) -> Unit)? = null): YoutubeDLResponse {
+        try {
+            val response = YouTubeRuntime.withExtractor { YoutubeDL.execute(req, id, callback) }
+            extractionDiagnostic(context, stage, response.err)
+            return response
+        } catch (e: Exception) {
+            extractionDiagnostic(context, stage, e.message.orEmpty())
+            throw e
+        }
     }
     override fun cancel(id: String) { YoutubeDL.destroyProcessById(id) }
 }

@@ -29,6 +29,6 @@ data class DownloadItem(
 fun safeAudioName(title: String): String = title.replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), "_")
     .trim().trim('.').take(100).ifBlank { "Audio" }
 fun validMediaUrl(value: String): Boolean = runCatching {
-    val uri = java.net.URI(value)
+    val uri = java.net.URI(value.trim())
     uri.scheme in listOf("http", "https") && !uri.host.isNullOrBlank() && uri.rawUserInfo == null
 }.getOrDefault(false)

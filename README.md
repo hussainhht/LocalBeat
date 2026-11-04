@@ -185,11 +185,10 @@ LocalBeat is an actively developed personal project. We believe in complete hone
 | **Theme & UI Animations** | ✅ **Verified** | Dark Crimson palette, responsive layouts, and crossfade transitions. |
 | **Local Video Audio Extraction** | ✅ **Verified** | Extracts audio tracks from local device video files into `Music/LocalBeat`. |
 | **Direct Media URL Downloads** | ✅ **Verified** | Successfully verified with direct public media streams. |
-| **YouTube URL Extraction** | ⚠️ **Under Active Repair** | **Currently experiencing issues on physical Android devices** due to native extractor runtime and cipher requirements. Active fixes are underway. |
+| **YouTube URL Extraction** | ✅ **Manually tested** | The creator confirmed successful audio downloading on a physical Android phone. Automated ARM64 testing has not been performed. |
 
-> [!WARNING]
-> **Important Note Regarding YouTube Downloads:**  
-> YouTube downloading is currently under active investigation and repair. While the native wrapper works in development test environments, extraction has failed on real physical Android hardware. We do not advertise or promise unrestricted YouTube extraction. Do not expect universal streaming site downloading at this time.
+> [!NOTE]
+> YouTube audio downloading has passed the creator's manual test on a physical Android phone. This development preview does not guarantee that every video or device will work; automated ARM64 testing remains outstanding.
 
 ---
 
@@ -251,7 +250,7 @@ Upon launching the application, LocalBeat will request necessary system permissi
 
 Here is what is planned for future milestones:
 
-- [ ] **Fix Physical Device YouTube Extraction:** Resolve native extractor runtime and EJS compatibility on physical ARM hardware.
+- [ ] **Expand YouTube Download Testing:** Add automated ARM64 coverage and test more devices and video formats.
 - [ ] **Embedded Lyrics Support:** Parse synchronized and unsynchronized lyrics from file ID3 tags and LRC files.
 - [ ] **Equalizer & Audio Effects:** Implement a built-in 5-band or 10-band graphic equalizer with bass boost and virtualizer.
 - [ ] **Sleep Timer:** Automatic playback fade-out and sleep timer for bedtime listening.

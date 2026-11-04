@@ -120,6 +120,7 @@ class DownloadRepositoryImpl internal constructor(private val context: Context,
                 libraryRevision.value += 1
             }
         } catch (e: Exception) {
+            if (!cancelled.get()) extractionDiagnostic(context, item.stage, e.message.orEmpty())
             withContext(NonCancellable) {
                 dao.put(item.copy(status = if (cancelled.get()) DownloadStatus.CANCELLED else DownloadStatus.FAILED,
                     stage = if (cancelled.get()) "Cancelled" else "Failed", progress = null,
@@ -139,6 +140,16 @@ fun friendlyError(e: Exception): String {
     val text = e.message.orEmpty().lowercase()
     return when {
         "initializ" in text -> "Native tools could not initialize. Check free storage and device compatibility."
+        "yt-dlp-ejs" in text || "ejs" in text && ("missing" in text || "unavailable" in text) -> "YouTube challenge solver is unavailable. Update LocalBeat."
+        "javascript runtime" in text || "js runtime" in text || "quickjs" in text -> "YouTube JavaScript runtime is unavailable or incompatible. Update LocalBeat."
+        "signature" in text || "n challenge" in text || "nsig" in text -> "YouTube challenge solving failed. Retry later or update LocalBeat."
+        "429" in text || "too many requests" in text -> "YouTube is rate limiting this network. Wait before retrying."
+        "sign in" in text || "login" in text || "confirm you" in text || "bot" in text -> "YouTube requires sign-in or a verification challenge. This public download cannot continue."
+        "country" in text || "region" in text || "geo-restrict" in text -> "This media is unavailable in your region."
+        "403" in text || "forbidden" in text -> "The media server refused access (403). The link may have expired or this network may be restricted. Retry to extract a fresh link."
+        "requested format" in text || "no supported unprotected audio" in text -> "No accessible unprotected audio format is available for this video."
+        "video unavailable" in text || "private video" in text || "removed" in text -> "This video is unavailable or private."
+        "drm" in text || "protected media" in text -> "Protected media cannot be downloaded."
         "unsupported url" in text -> "This URL or website is unsupported."
         "network" in text || "resolve" in text || "timed out" in text || "connection" in text -> "Network error. Check your connection and retry."
         "space" in text || "enospc" in text -> "Not enough free storage."

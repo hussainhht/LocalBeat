@@ -36,6 +36,13 @@ class NativeAudioImportTest {
                 val item = DownloadItem(UUID.randomUUID().toString(), "fixture", "LocalBeat native test", format = format)
                 val output = File(directory, if (format == "MP3") "out.mp3" else "out.m4a")
                 processor.convert(item, source, output, AtomicBoolean(false))
+                val cover = File(directory, "cover.jpg")
+                val bitmap = android.graphics.Bitmap.createBitmap(32, 32, android.graphics.Bitmap.Config.ARGB_8888)
+                bitmap.eraseColor(android.graphics.Color.BLUE)
+                try { cover.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, it) } }
+                finally { bitmap.recycle() }
+                assertTrue("Real FFmpeg must embed artwork for $format",
+                    processor.embedArtwork(item, output, cover, AtomicBoolean(false)))
                 val duration = processor.inspect(output).second
                 assertTrue(duration > 0)
                 val uri = MediaStorePublisher(context).publish(item, output, duration) {}
@@ -44,6 +51,11 @@ class NativeAudioImportTest {
                     val song = MusicRepositoryImpl(context.contentResolver).getSongById(ContentUris.parseId(uri).toString())
                     assertNotNull("Published audio must appear in existing Songs query", song)
                     assertEquals(item.title, song!!.title)
+                    val retriever = android.media.MediaMetadataRetriever()
+                    try {
+                        retriever.setDataSource(context, uri)
+                        assertTrue("Published file must contain artwork", (retriever.embeddedPicture?.size ?: 0) > 0)
+                    } finally { retriever.release() }
                 } finally { context.contentResolver.delete(uri, null, null) }
             }
         } finally { directory.deleteRecursively() }
@@ -64,12 +76,18 @@ class NativeAudioImportTest {
             val info = repo.downloader.info(url!!, id)
             assertTrue(info.title.isNotBlank())
             assertTrue(info.formats.isNotEmpty())
-            db.downloads().put(DownloadItem(id, url, info.title, format = "MP3", artist = info.artist, album = info.album))
+            assertNotNull("Network fixture must offer artwork", info.thumbnail)
+            db.downloads().put(DownloadItem(id, url, info.title, thumbnail = info.thumbnail, format = "MP3", artist = info.artist, album = info.album))
             assertTrue(repo.runNext {})
             val task = db.downloads().get(id)!!
             assertEquals(task.error, com.example.localbeat.data.model.DownloadStatus.COMPLETED, task.status)
             saved = android.net.Uri.parse(task.finalUri!!)
             assertNotNull(MusicRepositoryImpl(context.contentResolver).getSongById(ContentUris.parseId(saved).toString()))
+            val retriever = android.media.MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(context, saved)
+                assertTrue("Network download must embed artwork", (retriever.embeddedPicture?.size ?: 0) > 0)
+            } finally { retriever.release() }
         } finally {
             saved?.let { context.contentResolver.delete(it, null, null) }
             repo.scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()

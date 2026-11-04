@@ -117,6 +117,43 @@ open class AudioProcessor(private val context: Context) {
             error("This file has no supported audio track.")
         } finally { extractor.release() }
     }
+    /** Remux into a separate file; only replace playable audio after Android reads embedded art. */
+    open fun embedArtwork(item: DownloadItem, output: File, artwork: File, cancelled: AtomicBoolean): Boolean {
+        val tagged = File(output.parentFile, "tagged." + output.extension)
+        try {
+            check(!cancelled.get())
+            val args = mutableListOf("-nostdin", "-v", "error", "-y", "-i", output.absolutePath,
+                "-i", artwork.absolutePath, "-map", "0:a:0", "-map", "1:v:0",
+                "-map_metadata", "0", "-c:a", "copy", "-c:v", "mjpeg",
+                "-disposition:v:0", "attached_pic", "-metadata:s:v:0", "title=Album cover",
+                "-metadata:s:v:0", "comment=Cover (front)")
+            if (item.format == "MP3") args += listOf("-id3v2_version", "3")
+            args += tagged.absolutePath
+            val process = nativeProcess("libffmpeg.so", args)
+            processes[item.id] = process
+            try {
+                if (cancelled.get()) process.destroy()
+                process.inputStream.use { stream ->
+                    val buffer = ByteArray(4096)
+                    while (stream.read(buffer) >= 0) { /* Drain without retaining native diagnostics. */ }
+                }
+                check(process.waitFor() == 0 && !cancelled.get())
+            } finally { processes.remove(item.id); process.destroy() }
+            check(inspect(tagged).second > 0)
+            val retriever = android.media.MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(tagged.absolutePath)
+                check((retriever.embeddedPicture?.size ?: 0) > 0)
+            } finally { retriever.release() }
+            check(!cancelled.get())
+            check(tagged.renameTo(output))
+            return true
+        } catch (e: Exception) {
+            if (!cancelled.get()) android.util.Log.d("LocalBeat", "Artwork embedding skipped")
+            return false
+        } finally { tagged.delete() }
+    }
+
     open fun convert(item: DownloadItem, input: File, output: File, cancelled: AtomicBoolean) {
         try { YoutubeDL.init(context); FFmpeg.init(context) }
         catch (e: Exception) { error("Native audio tools could not initialize.") }

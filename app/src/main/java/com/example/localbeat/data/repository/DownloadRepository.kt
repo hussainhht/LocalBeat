@@ -89,7 +89,9 @@ class DownloadRepositoryImpl internal constructor(private val context: Context,
                 target
             } else {
                 stage(DownloadStatus.FETCHING_INFO, "Checking media")
-                downloader.info(item.url, item.id)
+                val fresh = downloader.info(item.url, item.id)
+                item = item.copy(thumbnail = fresh.thumbnail ?: item.thumbnail,
+                    artist = fresh.artist ?: item.artist, album = fresh.album ?: item.album)
                 check(!cancelled.get())
                 stage(DownloadStatus.DOWNLOADING, "Downloading")
                 var last = 0L
@@ -108,6 +110,13 @@ class DownloadRepositoryImpl internal constructor(private val context: Context,
             stage(DownloadStatus.PROCESSING, "Converting audio")
             val output = File(dir, if (item.format == "MP3") "audio.mp3" else "audio.m4a")
             processor.convert(item, input, output, cancelled)
+            if (!item.local) {
+                val artwork = downloadArtwork(item.thumbnail, dir, cancelled)
+                if (artwork != null) {
+                    try { processor.embedArtwork(item, output, artwork, cancelled) }
+                    finally { artwork.delete() }
+                }
+            }
             stage(DownloadStatus.SAVING, "Saving to Music/LocalBeat")
             withContext(NonCancellable) {
                 check(!cancelled.get())
